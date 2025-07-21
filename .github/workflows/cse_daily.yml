@@ -33,9 +33,9 @@ jobs:
     - name: Download CSE Daily Report
       run: python cse_downloader.py
       
-    # Upload downloaded files as artifacts
+    # Upload downloaded files as artifacts (UPDATED VERSION)
     - name: Upload PDF files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: cse-daily-reports-${{ github.run_number }}
