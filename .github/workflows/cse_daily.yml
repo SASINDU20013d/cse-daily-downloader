@@ -9,10 +9,16 @@ on:
 jobs:
   download-report:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
       
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -27,28 +33,25 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install selenium requests beautifulsoup4 webdriver-manager
+        pip install -r requirements.txt
         
     - name: Install ChromeDriver
       run: |
         # Install ChromeDriver using webdriver-manager
         python -c "from webdriver_manager.chrome import ChromeDriverManager; ChromeDriverManager().install()"
         
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
     - name: Run CSE Downloader
       run: python cse_downloader.py
       
-    - name: Upload downloaded files
+    - name: Upload downloaded files as artifacts (backup)
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: cse-daily-reports-${{ github.run_number }}
         path: downloads/
         retention-days: 30
-        
-    - name: Commit downloaded files
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add downloads/ || true
-        git commit -m "Add CSE daily report $(date)" || exit 0
-        git push || true

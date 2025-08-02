@@ -1,4 +1,5 @@
 import os
+import subprocess
 from datetime import datetime
 import requests
 from selenium import webdriver
@@ -10,6 +11,45 @@ from selenium.webdriver.chrome.options import Options
 # Configuration
 URL = "https://www.cse.lk/pages/cse-daily/cse-daily.component.html"
 DOWNLOAD_FOLDER = "downloads"
+
+def commit_and_push_to_git(file_path):
+    """Commits and pushes the downloaded file to the git repository."""
+    try:
+        print(f"Adding {file_path} to git...")
+        
+        # Add the downloads folder to git
+        subprocess.run(['git', 'add', 'downloads/'], check=True, cwd=os.getcwd())
+        
+        # Create commit message with current date and filename
+        commit_message = f"Add downloaded CSE daily report: {os.path.basename(file_path)} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # Commit the changes
+        result = subprocess.run(['git', 'commit', '-m', commit_message], 
+                              capture_output=True, text=True, cwd=os.getcwd())
+        
+        if result.returncode == 0:
+            print(f"✅ Successfully committed: {commit_message}")
+            
+            # Push to remote repository
+            print("Pushing to remote repository...")
+            push_result = subprocess.run(['git', 'push'], 
+                                       capture_output=True, text=True, cwd=os.getcwd())
+            
+            if push_result.returncode == 0:
+                print("✅ Successfully pushed to remote repository!")
+            else:
+                print(f"⚠️  Push failed: {push_result.stderr}")
+                print("File committed locally but not pushed to remote.")
+        else:
+            if "nothing to commit" in result.stdout:
+                print("ℹ️  No changes to commit (file may already exist in repository)")
+            else:
+                print(f"⚠️  Commit failed: {result.stderr}")
+                
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Git operation failed: {e}")
+    except Exception as e:
+        print(f"❌ Error during git operations: {e}")
 
 def setup_driver():
     """Sets up the Selenium WebDriver for GitHub Actions."""
@@ -71,8 +111,13 @@ def fetch_and_download_report(driver):
         response.raise_for_status()
         print("PDF content downloaded successfully.")
 
-        # Save file
+        # Save file with unique name if file exists
+        base, ext = os.path.splitext(new_filename)
         file_path = os.path.join(DOWNLOAD_FOLDER, new_filename)
+        counter = 1
+        while os.path.exists(file_path):
+            file_path = os.path.join(DOWNLOAD_FOLDER, f"{base}_{counter}{ext}")
+            counter += 1
         print(f"Saving PDF to {file_path}...")
         with open(file_path, 'wb') as f:
             f.write(response.content)
@@ -81,6 +126,9 @@ def fetch_and_download_report(driver):
         print(f"✅ SUCCESS: Downloaded report to: {file_path}")
         print(f"📊 Size: {len(response.content):,} bytes")
         print("-" * 50)
+        
+        # Commit and push to git repository
+        commit_and_push_to_git(file_path)
 
     except Exception as e:
         print(f"❌ Error occurred: {e}")
